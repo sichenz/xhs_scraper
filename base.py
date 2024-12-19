@@ -7,12 +7,11 @@ from playwright.sync_api import sync_playwright
 
 from xhs import DataFetchError, XhsClient, help
 
-
 def sign(uri, data=None, a1="", web_session=""):
-    for _ in range(10):
+    for _ in range(100):
         try:
             with sync_playwright() as playwright:
-                stealth_js_path = "/Users/princess/Documents/work/research assistant/xhs/stealth.min.js" #1
+                stealth_js_path = "/Users/princess/Documents/work/research assistant/xhs_scraper/stealth.min.js" #1
                 chromium = playwright.chromium
 
                 # 如果一直失败可尝试设置成 False 让其打开浏览器，适当添加 sleep 可查看浏览器状态
@@ -71,30 +70,6 @@ def dframe(note_data):
     df = pd.DataFrame(parsed)
     return df
 
-
-# if __name__ == '__main__':
-#     cookie = "a1=192a171c6860hl8e7u0k6i2yzjc49utpeya21nhxe30000176074; web_session=040069b2455e3ddc13a54e9027354baf5d096f; webId=4169600570b606e0cb30b645ab928cf3"
-
-#     xhs_client = XhsClient(cookie, sign=sign)
-#     print(datetime.datetime.now())
-
-#     for _ in range(10):
-#         count = 0
-#         try:
-#             note = xhs_client.get_note_by_keyword("NYU")
-#             # data = json.dumps(note, indent=4) #做成 json string file
-#             # data_dict = json.loads(note) #从 json string 变成 dict
-#             # print("Note data dictionary:", data_dict) 
-
-#             df = dframe(note)
-#             df.to_csv('data.csv', index=False)
-#             print(df)
-
-#             break
-#         except DataFetchError as e:
-#             print(e)
-#             print("失败重试一下下")
-
 keywords = [
     "NYUSH", "Stern", "NYUSH - Stern", "NYU Stern MSQF", "NYU Stern MSMRS", 
     "NYU Stern MSOMS", "NYU Stern MSDABC", "上纽", "上纽商科硕士", 
@@ -103,33 +78,37 @@ keywords = [
 ]
 
 if __name__ == '__main__':
-    cookie = "a1=192a171c6860hl8e7u0k6i2yzjc49utpeya21nhxe30000176074; web_session=040069b2455e3ddc13a54e9027354baf5d096f; webId=4169600570b606e0cb30b645ab928cf3"
+    cookie = "a1=192a171c6860hl8e7u0k6i2yzjc49utpeya21nhxe30000176074; web_session=040069b2455e3ddc13a52c2514354b520717ea; webId=4169600570b606e0cb30b645ab928cf3"
     xhs_client = XhsClient(cookie, sign=sign)
 
     print(datetime.datetime.now())
 
     for keyword in keywords:
-        count = 0
         all_notes = []
+        page = 1  # Start with the first page
 
-        while count < 50:
+        while True:
             try:
-                note = xhs_client.get_note_by_keyword(keyword)
+                print(f"Fetching notes for '{keyword}', page {page}...")
+                note = xhs_client.get_note_by_keyword(keyword, page=page)
                 items_fetched = note.get('items', [])
-                if not items_fetched: 
-                    print(f"No more notes available for '{keyword}'. Stopping early.")
+                if not items_fetched:
+                    print(f"No more notes available for '{keyword}' at page {page}. Stopping.")
                     break
 
-                all_notes.extend(items_fetched) 
-                count += len(items_fetched)
-                print(f"Fetched {len(items_fetched)} notes for '{keyword}', total: {count}")
+                all_notes.extend(items_fetched)
+                page += 1  # Move to the next page
 
             except DataFetchError as e:
                 print(e)
                 print(f"Failed to fetch notes for '{keyword}', retrying...")
 
+            sleep(1)  # Delay to avoid being rate-limited
+
         if all_notes:
-            df = dframe({"items": all_notes[:50]})
+            df = dframe({"items": all_notes})
             file_name = f'csv/{keyword}.csv'
             df.to_csv(file_name, index=False)
             print(f"Saved notes to {file_name}")
+
+
